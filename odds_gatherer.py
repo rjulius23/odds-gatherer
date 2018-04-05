@@ -9,9 +9,9 @@ from bs4 import BeautifulSoup
 
 class OddsGatherer(object):
     def __init__(self, **kwargs):
-        self.url = kwargs.get("url", None)
-        self.sitename = kwargs.get("sitename", None)
-        self.sportgenre = kwargs.get("sportgenre", None)
+        self.url = kwargs.get("url", "dummy.com")
+        self.sitename = kwargs.get("sitename", "dummysite")
+        self.sportgenre = kwargs.get("sportgenre", "dummysport")
 
     @abstractmethod
     def get_odds_from_site(self, **kwargs):
@@ -24,7 +24,7 @@ class OddsGatherer(object):
 
     def generate_csv(self, odds_rows):
         filename = self.sitename + "_" + self.sportgenre + "_odds.csv"
-        with open(filename, 'wb') as myfile:
+        with open(filename, 'w') as myfile:
             wr = csv.writer(myfile, delimiter=';', quoting=csv.QUOTE_ALL)
             for rows in odds_rows:
                 wr.writerow(rows)
@@ -50,6 +50,9 @@ class OddsChecker(OddsGatherer):
 
     def get_odds_from_site(self, **kwargs):
         best_odds = {}
+        odds_rows = []
+        columns = ["Match-up", "Winner", "Best Odds", "Bookies"]
+        odds_rows.append(columns)
         if self.page_content:
             matchups = self.get_matchup_urls(self.page_content)
             for match_url in matchups:
@@ -58,13 +61,17 @@ class OddsChecker(OddsGatherer):
                 best_odds[matchup_title[0]] = self._get_best_odds_for_each_team(match_url)
         else:
             sys.exit(1)
-        print(best_odds)
+
         for k, v in best_odds.items():
-            print(k)
             for team, odds_info in v.items():
-                print("Team: %s" % team)
-                print("---> best odds for win: %s" % odds_info["best_odds_for_win"])
-                print("---> bookies with best odds: %s" % odds_info["bks"])
+                odds_row = list()
+                # Add the match-up to the first column of the row
+                odds_row.append(k)
+                odds_row.append(team)
+                odds_row.append(odds_info["best_odds_for_win"])
+                odds_row.append(odds_info["bks"])
+                odds_rows.append(odds_row)
+        self.generate_csv(odds_rows)
 
     def _get_best_odds_for_each_team(self, match_url):
         best_odds_dict = {}
@@ -76,7 +83,7 @@ class OddsChecker(OddsGatherer):
         if best_odds_for_each_team:
             print(best_odds_for_each_team)
             for odds_info in best_odds_for_each_team:
-                best_odds_for_team = {}
+                best_odds_for_team = dict()
                 best_odds_for_team["bks"] = odds_info[0]
                 best_odds_for_team["best_odds_for_win"] = odds_info[1]
                 best_odds_dict[odds_info[2]] = best_odds_for_team

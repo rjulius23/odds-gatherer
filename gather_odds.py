@@ -7,7 +7,7 @@ from odds_gatherer import OddsChecker
 def parse_commandline():
     usage = (
         "Usage: \n"
-        "python ./{script} -U|--url <url> -S|--site <sitename>"
+        "python ./{script} -U|--url <url> -S|--site <sitename> -G|--genre <genre>"
     ).format(script=sys.argv[0])
     parser = argparse.ArgumentParser(
             usage=usage,
@@ -18,11 +18,13 @@ def parse_commandline():
                         help=argparse.SUPPRESS, required=True)
     parser.add_argument('-S', "--site", dest='site',
                         help=argparse.SUPPRESS, required=True)
+    parser.add_argument('-G', "--genre", dest='genre',
+                        help=argparse.SUPPRESS, required=True)
     args_ret = parser.parse_args()
     return args_ret
 
 
 if __name__ == "__main__":
     args = parse_commandline()
-    oc = OddsChecker(url=args.url, site=args.site)
+    oc = OddsChecker(url=args.url, sitename=args.site, sportgenre=args.genre)
     oc.get_odds_from_site()
