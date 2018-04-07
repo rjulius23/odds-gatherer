@@ -40,11 +40,22 @@ class OddsGatherer(object):
 class OddsChecker(OddsGatherer):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.page_content = self.get_prettified_page(self.url)
         self.baseurl = "https://www.oddschecker.com/"
+        self.subpages = {
+            "nba": "basketball/nba",
+            "tennis": "tennis/match-coupon"
+        }
+        self.pattern_dict = {
+            "nba": r'basketball\/nba\/\w+-\w+-at-\w+-\w+\/winner',
+            "nba_matchup": r'basketball\/nba\/(\w+-\w+-at-\w+-\w+)\/winner',
+            "tennis": r'tennis\/.*\/\w+-\w+-v-\w+-\w+\/winner',
+            "tennis_matchup": r'tennis\/.*\/(\w+-\w+-v-\w+-\w+)\/winner'
+        }
+        url = self.baseurl + self.subpages[self.sportgenre]
+        self.page_content = self.get_prettified_page(url)
 
-    def get_matchup_urls(self, content):
-        pattern = r'basketball\/nba\/\w+-\w+-at-\w+-\w+\/winner'
+    def get_matchup_urls(self):
+        pattern = self.pattern_dict[self.sportgenre]
         urls = [self.baseurl + x for x in self._find_pattern_on_page(pattern)]
         return urls
 
@@ -52,32 +63,36 @@ class OddsChecker(OddsGatherer):
         best_odds = {}
         odds_rows = []
         columns = ["Match-up", "Winner", "Best Odds", "Bookies"]
-        odds_rows.append(columns)
-        if self.page_content:
-            matchups = self.get_matchup_urls(self.page_content)
-            for match_url in matchups:
-                pattern = r'basketball\/nba\/(\w+-\w+-at-\w+-\w+)\/winner'
-                matchup_title = re.findall(pattern, match_url)
-                best_odds[matchup_title[0]] = self._get_best_odds_for_each_team(match_url)
-        else:
-            sys.exit(1)
+        pattern = self.pattern_dict[self.sportgenre]
+        if pattern:
+            odds_rows.append(columns)
+            if self.page_content:
+                matchups = self.get_matchup_urls()
+                for match_url in matchups:
+                    pattern = self.pattern_dict[self.sportgenre + "_matchup"]
+                    matchup_title = re.findall(pattern, match_url)
+                    best_odds[matchup_title[0]] = self._get_best_odds_for_each_team(match_url)
+            else:
+                sys.exit(1)
 
-        for k, v in best_odds.items():
-            for team, odds_info in v.items():
-                odds_row = list()
-                # Add the match-up to the first column of the row
-                odds_row.append(k)
-                odds_row.append(team)
-                odds_row.append(odds_info["best_odds_for_win"])
-                odds_row.append(odds_info["bks"])
-                odds_rows.append(odds_row)
-        self.generate_csv(odds_rows)
+            for k, v in best_odds.items():
+                for team, odds_info in v.items():
+                    odds_row = list()
+                    # Add the match-up to the first column of the row
+                    odds_row.append(k)
+                    odds_row.append(team)
+                    odds_row.append(odds_info["best_odds_for_win"])
+                    odds_row.append(odds_info["bks"])
+                    odds_rows.append(odds_row)
+            self.generate_csv(odds_rows)
+        else:
+            raise Exception("No patterns were specified!")
 
     def _get_best_odds_for_each_team(self, match_url):
         best_odds_dict = {}
         pattern = r'data-best-bks=["]([a-zA-Z,0-9]*)["][ ]' \
                   r'data-best-dig=["]([0-9.]*)["][ ].*[ ]' \
-                  r'data-bname=["]([a-zA-Z]*[ ][a-zA-Z0-9]*)["]'
+                  r'data-bname=["]([a-zA-Z]*[ |/][a-zA-Z0-9]*)["]'
         matchup_content = self.get_prettified_page(match_url)
         best_odds_for_each_team = re.findall(pattern, matchup_content)
         if best_odds_for_each_team:
